@@ -49,6 +49,8 @@ void ViconBridge::get_parameters() {
       "target_segment_name", target_segment_name_);
   world_frame_id_ =
       this->declare_parameter<std::string>("world_frame_id", world_frame_id_);
+  tf_namespace_ =
+      this->declare_parameter<std::string>("tf_namespace", tf_namespace_);
 }
 
 bool ViconBridge::init_vicon() {
@@ -287,10 +289,11 @@ void ViconBridge::publish_pose(const rclcpp::Time &now,
 
   geometry_msgs::msg::TransformStamped msg;
 
-  msg.header.frame_id = world_frame_id_;
+  msg.header.frame_id = (tf_namespace_ + "/" + world_frame_id_).c_str();
   msg.header.stamp = now;
-  msg.child_frame_id =
-      (std::string(subjectName) + "/" + std::string(segmentName)).c_str();
+  msg.child_frame_id = (tf_namespace_ + "/" + std::string(subjectName) + "/" +
+                        std::string(segmentName))
+                           .c_str();
 
   msg.transform.translation.x = trans[0] / 1000;
   msg.transform.translation.y = trans[1] / 1000;

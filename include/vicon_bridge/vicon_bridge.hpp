@@ -45,9 +45,10 @@ class ViconBridge : public rclcpp::Node
 		bool publish_specific_segment_ = false;
 		std::string target_subject_name_ = "px4_1";
 		std::string target_segment_name_ = "px4_1";
-		std::string world_frame_id_ = "vicon/world";
+                std::string world_frame_id_ = "world";
+                std::string tf_namespace_ = "vicon";
 
-		// vars
+                // vars
 		RetimingClient client_;
 		rclcpp::TimerBase::SharedPtr timer_;
 		std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;

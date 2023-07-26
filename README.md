@@ -28,7 +28,7 @@ colcon build --symlink-install
 ```
 ros2 run vicon_bridge vicon_bridge --ros-args ...
 ``` 
-and in the `/tf` topic you will see the transform being published. Each `tf` that is published is in the form of `vicon/<subject_name>/<segment_name>` where subject and segment names are usually the same. 
+and in the `/tf` topic you will see the transform being published. Each `tf` that is published is in the form of `<tf_namespace>/<subject_name>/<segment_name>` where subject and segment names are usually the same. By default `tf_namespace=vicon`. 
 
 You need to set a bunch of parameters:
 
@@ -40,6 +40,7 @@ You need to set a bunch of parameters:
 - [string] `target_subject_name`:  if `publish_specific_segment` is true, this is the subject that will be published
 - [string] `target_segment_name`:  if `publish_specific_segment` is true, this is the subject that will be published
 - [string] `world_frame_id`: this is the `frame_id`  associated with the origin of your Vicon setup. 
+- [string] `tf_namespace`: sets the namespace for all published names to tf. 
 
 
 Example:
