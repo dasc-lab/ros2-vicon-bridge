@@ -36,8 +36,6 @@ ViconBridge::ViconBridge()
 void ViconBridge::get_parameters() {
 
   host_name_ = this->declare_parameter<std::string>("host_name", host_name_);
-  stream_mode_ =
-      this->declare_parameter<std::string>("stream_mode", stream_mode_);
   max_prediction_ms_ =
       this->declare_parameter<double>("max_prediction_ms", max_prediction_ms_);
   update_rate_hz_ =
