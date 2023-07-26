@@ -1,5 +1,6 @@
 #include "vicon_bridge/vicon_bridge.hpp"
 #include "vicon_bridge/adapt.hpp"
+#include <unistd.h>
 
 namespace vicon_bridge {
 
@@ -58,7 +59,7 @@ bool ViconBridge::init_vicon() {
   while (!client_.IsConnected().Connected) {
     client_.Connect(host_name_);
     RCLCPP_INFO(get_logger(), ".");
-    sleep(1);
+    usleep(1000);
   }
   assert((client_.IsConnected().Connected));
   RCLCPP_INFO(get_logger(), "Connected!");
