@@ -187,7 +187,7 @@ void ViconBridge::process_frame(rclcpp::Time &grab_time) {
   rclcpp::Duration latency{std::chrono::duration<double>(latency_s)};
   RCLCPP_INFO_THROTTLE(get_logger(), *(this->get_clock()),
                        1000, // 1000 ms = 1 second
-                       "total latency: %f s", latency_s);
+                       "latency of last frame: %f s", latency_s);
 
   if (publish_specific_segment_) {
     process_specific_segment(grab_time - latency);

@@ -58,7 +58,7 @@ namespace vicon_bridge {
 
                 // parameters
 		std::string host_name_ = "192.168.2.136:801";
-		std::string stream_mode_ = "ClientPull";
+		std::string stream_mode_ = "ServerPush";
                 double update_rate_hz_ = 250.0;
                 bool publish_specific_segment_ = false;
 		std::string target_subject_name_ = "px4_1";
