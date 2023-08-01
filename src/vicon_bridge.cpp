@@ -7,10 +7,8 @@ namespace vicon_bridge {
 using namespace std::chrono_literals;
 using namespace ViconDataStreamSDK::CPP;
 
-ViconBridge::ViconBridge() 
-	: Node("vicon_bridge")
-	  , start_time_(this->get_clock()->now())
-{
+ViconBridge::ViconBridge()
+    : Node("vicon_bridge"), start_time_(this->get_clock()->now()) {
 
   get_parameters();
 
