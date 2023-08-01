@@ -608,7 +608,7 @@ int main(int argc, char *argv[]) {
     {
       // Get a frame
       while (MyClient.GetFrame().Result != Result::Success) {
-// Sleep a little so that we don't lumber the CPU with a busy poll
+        // Sleep a little so that we don't lumber the CPU with a busy poll
         sleep(1);
         OutputStream << ".";
       }
@@ -616,19 +616,23 @@ int main(int argc, char *argv[]) {
       const std::chrono::high_resolution_clock::time_point Now =
           std::chrono::high_resolution_clock::now();
 
-      double dt_ms = (1e-3 * std::chrono::duration_cast<std::chrono::microseconds>(Now - LastFrameTime).count());
-      std::cout << "time since last frame: " << dt_ms  << " ms" << std::endl;
+      double dt_ms =
+          (1e-3 * std::chrono::duration_cast<std::chrono::microseconds>(
+                      Now - LastFrameTime)
+                      .count());
+      std::cout << "time since last frame: " << dt_ms << " ms" << std::endl;
 
-      if (dt_ms < 5.0 || dt_ms > 12.0) 
-	     {
-		     std::cout << "\033[31m" << "FRAME_TIME : " << dt_ms << "\033[0m" << std::endl;
-	     }
+      if (dt_ms < 5.0 || dt_ms > 12.0) {
+        std::cout << "\033[31m"
+                  << "FRAME_TIME : " << dt_ms << "\033[0m" << std::endl;
+      }
 
       LastFrameTime = Now;
 
       // // Get the frame number
-      // Output_GetFrameNumber _Output_GetFrameNumber = MyClient.GetFrameNumber();
-      // OutputStream << "Frame Number: " << _Output_GetFrameNumber.FrameNumber
+      // Output_GetFrameNumber _Output_GetFrameNumber =
+      // MyClient.GetFrameNumber(); OutputStream << "Frame Number: " <<
+      // _Output_GetFrameNumber.FrameNumber
       //              << std::endl;
 
       // Output_GetFrameRate Rate = MyClient.GetFrameRate();
@@ -640,13 +644,14 @@ int main(int argc, char *argv[]) {
       //      ++FramerateIndex) {
       //   std::string FramerateName =
       //       MyClient.GetFrameRateName(FramerateIndex).Name;
-      //   double FramerateValue = MyClient.GetFrameRateValue(FramerateName).Value;
+      //   double FramerateValue =
+      //   MyClient.GetFrameRateValue(FramerateName).Value;
 
       //   OutputStream << FramerateName << ": " << FramerateValue << "Hz"
       //                << std::endl;
       // }
       // OutputStream << std::endl;
-      // 
+      //
       // // Get the latency
       // OutputStream << "Latency: " << MyClient.GetLatencyTotal().Total << "s"
       //              << std::endl;
@@ -656,7 +661,8 @@ int main(int argc, char *argv[]) {
       //      ++LatencySampleIndex) {
       //   std::string SampleName =
       //       MyClient.GetLatencySampleName(LatencySampleIndex).Name;
-      //   double SampleValue = MyClient.GetLatencySampleValue(SampleName).Value;
+      //   double SampleValue =
+      //   MyClient.GetLatencySampleValue(SampleName).Value;
 
       //   OutputStream << "  " << SampleName << " " << SampleValue << "s"
       //                << std::endl;
@@ -672,8 +678,6 @@ int main(int argc, char *argv[]) {
       // // Count the number of subjects
       // unsigned int SubjectCount = MyClient.GetSubjectCount().SubjectCount;
       // OutputStream << "Subjects (" << SubjectCount << "):" << std::endl;
-
-
 
       ++Counter;
     }

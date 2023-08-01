@@ -64,11 +64,20 @@ ament_target_dependencies(vicon_bridge
 	tf2_ros
 	geometry_msgs
 )
-target_link_libraries(vicon_bridge vicon_sdk)
+target_link_libraries(vicon_bridge vicon_sdk ${Boost_LIBRARIES})
 
+add_executable(vicon_bridge_retiming src/vicon_bridge_retiming.cpp)
+ament_target_dependencies(vicon_bridge_retiming
+	rclcpp
+	tf2
+	tf2_ros
+	geometry_msgs
+)
+target_link_libraries(vicon_bridge_retiming vicon_sdk)
 
 install(TARGETS
 	vicon_bridge
+  vicon_bridge_retiming
 	DESTINATION lib/${PROJECT_NAME}
 	)
 
