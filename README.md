@@ -14,7 +14,7 @@ Instead of using the standard `ViconSDK::Client` this repo uses the `ViconClient
 
 Install `ros2` and ensure the following `Boost` libraries are available. 
 ```
-sudo apt-get install libboost-threads-dev libboost-date-time-dev
+sudo apt-get install libboost-thread-dev libboost-date-time-dev
 ```
 The source code of the `ViconSDK` has been copied from Vicon and provided in this repo, meaning it should be able to build for both `x86` and `aarch64` systems, and possibly others. 
 
