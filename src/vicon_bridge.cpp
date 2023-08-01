@@ -28,17 +28,12 @@ ViconBridge::ViconBridge()
   // segment or all segments
   timer_ = this->create_wall_timer(
       std::chrono::duration<double>(1.0 / update_rate_hz_),
-      std::bind((publish_specific_segment_
-                     ? &ViconBridge::timer_callback_specific
-                     : &ViconBridge::timer_callback_all),
-                this));
+      std::bind(&ViconBridge::timer_callback, this));
 }
 
 void ViconBridge::get_parameters() {
 
   host_name_ = this->declare_parameter<std::string>("host_name", host_name_);
-  max_prediction_ms_ =
-      this->declare_parameter<double>("max_prediction_ms", max_prediction_ms_);
   update_rate_hz_ =
       this->declare_parameter<double>("update_rate_hz", update_rate_hz_);
   publish_specific_segment_ = this->declare_parameter<bool>(
@@ -55,6 +50,8 @@ void ViconBridge::get_parameters() {
 
 bool ViconBridge::init_vicon() {
 
+  Result::Enum result(Result::Unknown);
+
   // connect
   RCLCPP_INFO(get_logger(), "Connecting to Vicon Datastream SDK at %s",
               host_name_.c_str());
@@ -64,7 +61,24 @@ bool ViconBridge::init_vicon() {
     usleep(1000);
   }
   assert((client_.IsConnected().Connected));
-  RCLCPP_INFO(get_logger(), "Connected!");
+  RCLCPP_INFO(get_logger(), "...connected!");
+
+  // set stream mode
+  // ClientPullPrefetch doesn't make much sense here, since we're only
+  // forwarding the data
+  if (stream_mode_ == "ServerPush") {
+    result = client_.SetStreamMode(StreamMode::ServerPush).Result;
+  } else if (stream_mode_ == "ClientPull") {
+    result = client_.SetStreamMode(StreamMode::ClientPull).Result;
+  } else {
+    RCLCPP_FATAL(get_logger(),
+                 "Unknown stream mode -- options are ServerPush, ClientPull");
+    rclcpp::shutdown();
+  }
+
+  RCLCPP_INFO_STREAM(get_logger(), "Setting Stream Mode to " << stream_mode_
+                                                             << ": "
+                                                             << Adapt(result));
 
   // setup axis mode
   client_.SetAxisMapping(Direction::Forward, Direction::Left,
@@ -86,9 +100,11 @@ bool ViconBridge::init_vicon() {
     RCLCPP_WARN_STREAM(get_logger(), "Setting lightweight mode: Failure");
   }
 
-  // set Maximum prediction allowed
-  client_.SetMaximumPrediction(max_prediction_ms_);
+  // setup segments
+  client_.EnableSegmentData();
+  assert(client_.IsSegmentDataEnabled().Enabled);
 
+  // version
   Output_GetVersion _Output_GetVersion = client_.GetVersion();
   RCLCPP_INFO_STREAM(get_logger(),
                      "Version: " << _Output_GetVersion.Major << "."
@@ -97,215 +113,195 @@ bool ViconBridge::init_vicon() {
   return true;
 }
 
-void ViconBridge::timer_callback_specific() {
-  
-  // print drop_rate
-  print_drop_rate();
-  
-  // increment the drop counter, and then reduce it when we publish a pose
-  drop_count_++;
-	
-  double offset = 0.0;
-  Output_UpdateFrame res_updateFrame = client_.UpdateFrame(offset);
-  const rclcpp::Time now = this->get_clock()->now();
-  
-  if (res_updateFrame.Result != Result::Success) {
-    RCLCPP_WARN_STREAM(get_logger(), "UpdateFrame failed! DropCount: "<< drop_count_ << " Status: "
-                                         << Adapt(res_updateFrame.Result));
-    return;
-  }
+void ViconBridge::create_segment_thread(const std::string subject_name,
+                                        const std::string segment_name) {
 
+  RCLCPP_INFO(get_logger(), "Creating new object %s/%s", subject_name.c_str(),
+              segment_name.c_str());
 
-  String subjectName = target_subject_name_;
-  String segmentName = target_segment_name_;
+  boost::mutex::scoped_lock lock(segments_mutex_);
+  SegmentPublisher &spub =
+      segment_publishers_[subject_name + "/" + segment_name];
+  lock.unlock(); // we dont need the lock anymore
 
-  // GET THE SEGMENT ROTATION
-  Output_GetSegmentGlobalRotationQuaternion res_quat =
-      client_.GetSegmentGlobalRotationQuaternion(subjectName, segmentName);
+  // register the publisher
+  spub.pub = this->create_publisher<geometry_msgs::msg::TransformStamped>(
+      tf_namespace_ + "/" + subject_name + "/" + segment_name, 10);
 
-  if (res_quat.Result != Result::Success) {
-    RCLCPP_WARN_STREAM(get_logger(),
-                       "Could not get the rotation for "
-                           << subjectName << "/" << segmentName
-                           << ". Status: " << Adapt(res_quat.Result) << " ["
-                           << res_quat.Result << "]");
-    return;
-  }
-
-  // GET THE SEGMENT TRANSLATION
-  Output_GetSegmentGlobalTranslation res_trans =
-      client_.GetSegmentGlobalTranslation(subjectName, segmentName);
-  if (res_trans.Result != Result::Success) {
-    RCLCPP_INFO_STREAM(get_logger(),
-                       "Could not get translation for "
-                           << subjectName << "/" << segmentName
-                           << ". Status : " << Adapt(res_trans.Result));
-    return;
-  }
-
-  // check for occlusion
-  if (res_quat.Occluded || res_trans.Occluded) {
-    RCLCPP_WARN_STREAM(get_logger(),
-                       "OCCULDED: " << subjectName << "/" << segmentName);
-    return;
-  }
-
-  // Now publish it
-      drop_count_ --;
-  publish_pose(now, subjectName, segmentName, res_quat.Rotation,
-               res_trans.Translation);
+  spub.is_ready = true;
 }
 
+void ViconBridge::create_segment(const std::string subject,
+                                 const std::string segment) {
 
-void ViconBridge::print_drop_rate(){
-
-	double t = (get_clock()->now() - start_time_).seconds();
-	double drop_rate = drop_count_ / t;
-	RCLCPP_INFO_THROTTLE(get_logger(), *(this-> get_clock()), 1000, "Missed %zu callbacks in %f seconds. Drop Rate: %f cbs/s", drop_count_, t, drop_rate); 
+  boost::thread(&ViconBridge::create_segment_thread, this, subject, segment);
 }
 
+void ViconBridge::timer_callback() {
 
-void ViconBridge::timer_callback_all() {
+  rclcpp::Rate rate(update_rate_hz_);
 
-  // print drop_rate
-  print_drop_rate();
-  
-  // increment the drop counter, and then reduce it when we publish a pose
-  drop_count_++;
+  while (client_.GetFrame().Result != Result::Success && rclcpp::ok()) {
 
+    RCLCPP_INFO(get_logger(), "GetFrame returned false");
+    rate.sleep();
+  }
 
-  double offset = 0.0;
-  Output_UpdateFrame res_updateFrame = client_.UpdateFrame(offset);
+  auto now = this->get_clock()->now();
 
-  if (res_updateFrame.Result != Result::Success) {
-    RCLCPP_WARN_STREAM(get_logger(), "UpdateFrame failed! DropCount: " << drop_count_ << " Status: "
-                                         << Adapt(res_updateFrame.Result));
+  process_frame(now);
+}
+
+void ViconBridge::process_frame(rclcpp::Time &grab_time) {
+
+  std::size_t frame_number = client_.GetFrameNumber().FrameNumber;
+
+  // skip the first call to process frames
+  if (last_frame_number_ == 0) {
+    last_frame_number_ = frame_number;
     return;
   }
 
-  const rclcpp::Time now = this->get_clock()->now();
-
-  // GET SUBJECT COUNT
-  Output_GetSubjectCount res_subjectCount = client_.GetSubjectCount();
-  if (res_subjectCount.Result != Result::Success) {
-    RCLCPP_WARN(get_logger(), "Could not get subject count");
+  // check that indeed we have a new frame
+  int frame_diff = frame_number - last_frame_number_;
+  if (frame_diff <= 0) {
     return;
   }
-  std::size_t N_subject = res_subjectCount.SubjectCount;
-  // RCLCPP_INFO(get_logger(), "Got Frame: Subject Count: %zu", N_subject);
 
-  // LOOP OVER SUBJECTS
-  for (std::size_t i_subject = 0; i_subject < N_subject; ++i_subject) {
-
-    // GET SUBJECT NAME
-    Output_GetSubjectName res_subjectName = client_.GetSubjectName(i_subject);
-    if (res_subjectName.Result != Result::Success) {
-      RCLCPP_WARN(get_logger(), "Could not get subject %li name", i_subject);
-      continue;
-    }
-    String subjectName = res_subjectName.SubjectName;
-
-    // GET SEGMENT COUNT
-    Output_GetSegmentCount res_segmentCount =
-        client_.GetSegmentCount(res_subjectName.SubjectName);
-    if (res_segmentCount.Result != Result::Success) {
-      RCLCPP_WARN_STREAM(get_logger(),
-                         "Count not get segment count for subject "
-                             << subjectName);
-      continue;
-    }
-
-    // LOOP OVER SEGMENTS
-    std::size_t N_segment = res_segmentCount.SegmentCount;
-    for (std::size_t i_segment = 0; i_segment < N_segment; ++i_segment) {
-
-      // GET SEGMENT NAME
-      Output_GetSegmentName res_segmentName =
-          client_.GetSegmentName(subjectName, i_segment);
-      if (res_segmentName.Result != Result::Success) {
-        RCLCPP_WARN_STREAM(get_logger(),
-                           "Could not get segment name for segment "
-                               << i_segment << "of subject " << subjectName);
-        continue;
-      }
-      String segmentName = res_segmentName.SegmentName;
-
-      // GET THE SEGMENT ROTATION
-      Output_GetSegmentGlobalRotationQuaternion res_quat =
-          client_.GetSegmentGlobalRotationQuaternion(subjectName, segmentName);
-
-      if (res_quat.Result != Result::Success) {
-        RCLCPP_WARN_STREAM(get_logger(),
-                           "Could not get the rotation for "
-                               << subjectName << "/" << segmentName
-                               << ". Status: " << Adapt(res_quat.Result) << " ["
-                               << res_quat.Result << "]");
-        continue;
-      }
-
-      // GET THE SEGMENT TRANSLATION
-      Output_GetSegmentGlobalTranslation res_trans =
-          client_.GetSegmentGlobalTranslation(subjectName, segmentName);
-      if (res_trans.Result != Result::Success) {
-        RCLCPP_INFO_STREAM(get_logger(),
-                           "Could not get translation for "
-                               << subjectName << "/" << segmentName
-                               << ". Status : " << Adapt(res_trans.Result));
-        continue;
-      }
-
-      // check for occlusion
-      if (res_quat.Occluded || res_trans.Occluded) {
-        RCLCPP_WARN_STREAM(get_logger(),
-                           "OCCULDED: " << subjectName << "/" << segmentName);
-        continue;
-      }
-
-      // Now publish it
-      drop_count_ --;
-      publish_pose(now, subjectName, segmentName, res_quat.Rotation,
-                   res_trans.Translation);
-    }
+  // check if we have dropped frames
+  frame_count_ += frame_diff;
+  if (frame_diff > 1) {
+    drop_count_ += frame_diff;
+    double droppedFramePct = (double)drop_count_ / frame_count_ * 100.0;
+    RCLCPP_WARN_STREAM(get_logger(), frame_diff
+                                         << " more frames dropped. Total "
+                                         << drop_count_ << "/" << frame_count_
+                                         << ", " << droppedFramePct
+                                         << "%. Consider adjusting rates.");
   }
+
+  last_frame_number_ = frame_number;
+
+  // now do the actual processing
+  double latency_s = client_.GetLatencyTotal().Total;
+  rclcpp::Duration latency{std::chrono::duration<double>(latency_s)};
+  RCLCPP_INFO_THROTTLE(get_logger(), *(this->get_clock()),
+                       1000, // 1000 ms = 1 second
+                       "total latency: %f s", latency_s);
+
+  if (publish_specific_segment_) {
+    process_specific_segment(grab_time - latency);
+  } else {
+    process_all_segments(grab_time - latency);
+  }
+
+  return;
 }
 
-void ViconBridge::publish_pose(const rclcpp::Time &now,
-                               const String &subjectName,
-                               const String &segmentName, double *quat,
-                               double *trans) {
-
-  // print the final quaternion
-  // in format x, y, z, w
-  //       RCLCPP_INFO_STREAM(get_logger(), "Quaternion: " <<
-  //                   subjectName << "/" << segmentName << ": " <<  quat[0] <<
-  //                   ", " << quat[1] << ", " <<  quat[2] << ", " << quat[3] );
-  //
-  //       // print the final translation
-  //       // in x, y, z, [mm]
-  //       RCLCPP_INFO_STREAM(get_logger(), "Translation: " << subjectName <<
-  //       "/" << segmentName << ": " << trans[0] << ", " << trans[1] << ", " <<
-  //       trans[2] );
-  //
+void ViconBridge::process_specific_segment(const rclcpp::Time &frame_time) {
 
   geometry_msgs::msg::TransformStamped msg;
+  bool success = get_transform(msg, frame_time, target_subject_name_,
+                               target_segment_name_);
+
+  if (success) {
+    tf_broadcaster_->sendTransform(msg);
+  }
+
+  return;
+}
+
+void ViconBridge::process_all_segments(const rclcpp::Time &frame_time) {
+
+  std::string subject_name, segment_name;
+
+  std::size_t n_subjects = client_.GetSubjectCount().SubjectCount;
+
+  SegmentMap::iterator pub_it;
+
+  std::vector<geometry_msgs::msg::TransformStamped> transforms;
+
+  for (std::size_t i_subject = 0; i_subject < n_subjects; ++i_subject) {
+
+    subject_name = client_.GetSubjectName(i_subject).SubjectName;
+
+    std::size_t n_segments = client_.GetSegmentCount(subject_name).SegmentCount;
+
+    for (std::size_t i_segment = 0; i_segment < n_segments; ++i_segment) {
+
+      segment_name =
+          client_.GetSegmentName(subject_name, i_segment).SegmentName;
+
+      geometry_msgs::msg::TransformStamped transform;
+      bool success =
+          get_transform(transform, frame_time, subject_name, segment_name);
+
+      if (success) {
+        transforms.push_back(transform);
+
+        // now find the specific publisher
+        boost::mutex::scoped_try_lock lock(segments_mutex_);
+        if (lock.owns_lock()) {
+          pub_it = segment_publishers_.find(subject_name + "/" + segment_name);
+          if (pub_it != segment_publishers_.end()) {
+            SegmentPublisher &spub = pub_it->second;
+            if (spub.is_ready) {
+              spub.pub->publish(transform);
+            }
+          } else {
+            // need to create a new publisher
+            lock.unlock();
+            create_segment(subject_name, segment_name);
+          }
+        }
+      }
+    }
+  }
+
+  // now publish all of the transforms as a single tf broadcaster message
+  tf_broadcaster_->sendTransform(transforms);
+}
+
+bool ViconBridge::get_transform(geometry_msgs::msg::TransformStamped &msg,
+                                const rclcpp::Time &frame_time,
+                                std::string subject_name,
+                                std::string segment_name) {
+
+  auto res_quat =
+      client_.GetSegmentGlobalRotationQuaternion(subject_name, segment_name);
+  auto res_trans =
+      client_.GetSegmentGlobalTranslation(subject_name, segment_name);
+
+  if (res_quat.Result != Result::Success ||
+      res_trans.Result != Result::Success) {
+    RCLCPP_WARN(get_logger(), "getTransform failed for %s/%s",
+                subject_name.c_str(), segment_name.c_str());
+    return false;
+  }
+
+  if (res_quat.Occluded || res_trans.Occluded) {
+    RCLCPP_WARN(get_logger(), "Subject %s/%s is Occluded", subject_name.c_str(),
+                segment_name.c_str());
+    return false;
+  }
 
   msg.header.frame_id = (tf_namespace_ + "/" + world_frame_id_).c_str();
-  msg.header.stamp = now;
-  msg.child_frame_id = (tf_namespace_ + "/" + std::string(subjectName) + "/" +
-                        std::string(segmentName))
-                           .c_str();
+  msg.header.stamp = frame_time;
+  msg.child_frame_id =
+      (tf_namespace_ + "/" + subject_name + "/" + segment_name).c_str();
 
+  auto trans = res_trans.Translation;
   msg.transform.translation.x = trans[0] / 1000;
   msg.transform.translation.y = trans[1] / 1000;
   msg.transform.translation.z = trans[2] / 1000;
 
+  auto quat = res_quat.Rotation;
   msg.transform.rotation.x = quat[0];
   msg.transform.rotation.y = quat[1];
   msg.transform.rotation.z = quat[2];
   msg.transform.rotation.w = quat[3];
 
-  //  send
-  tf_broadcaster_->sendTransform(msg);
+  return true;
 }
 
 } // namespace vicon_bridge
