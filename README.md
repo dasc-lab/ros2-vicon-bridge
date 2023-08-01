@@ -34,7 +34,7 @@ It will also publish a topic `/<tf_namespace>/<subject_name>/<segment_name>` for
 
 You need to set a bunch of parameters:
 
-## Parameters 
+### Parameters 
 - [string] `host_name`: in the format of `<ip_address_of_computer_running_vicon_tracker>:801`
 - [string] `stream_mode`: either `ClientPull` or `ServerPush` (ServerPush requires more networking bandwidth, but has lower latency)
 - [double] `update_rate_hz`: the rate at which you want to poll for new messages (ideally more than 2x the frequency of the incoming vicon messages)
@@ -64,7 +64,7 @@ and in the `/tf` topic you will see the transform being published. Each `tf` tha
 
 You need to set a bunch of parameters:
 
-## Parameters 
+### Parameters 
 - [string] `host_name`: in the format of `<ip_address_of_computer_running_vicon_tracker>:801`
 - [double] `max_prediction_ms`: in the `RetimingClient` it is allowed to predict the state of the target, by upto `max_prediction_ms` milliseconds
 - [double] `update_rate_hz`: the rate at which you want to publish the state estimate
