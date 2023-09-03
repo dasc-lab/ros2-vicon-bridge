@@ -21,9 +21,19 @@ ViconBridge::ViconBridge()
     rclcpp::shutdown();
   }
 
+  // setup diagnostics
+  updater_ptr_ = std::make_shared<diagnostic_updater::Updater>(this);
+  updater_ptr_->setHardwareID("vicon");
+  // auto diagnostics_param =
+  // diagnostic_updater::FrequencyStatusParam(&update_rate_hz_, &update_rate_hz_,
+  // tolerance_, window_);
+  auto diagnostics_param = diagnostic_updater::FrequencyStatusParam(
+      &expected_rate_hz_, &expected_rate_hz_);
+  pub_freq_ptr_ =
+      std::make_shared<diagnostic_updater::HeaderlessTopicDiagnostic>(
+          "vicon", *updater_ptr_, diagnostics_param);
+
   // start timer
-  // start a different timer based on whether we want to publish a specific
-  // segment or all segments
   timer_ = this->create_wall_timer(
       std::chrono::duration<double>(1.0 / update_rate_hz_),
       std::bind(&ViconBridge::timer_callback, this));
@@ -34,6 +44,8 @@ void ViconBridge::get_parameters() {
   host_name_ = this->declare_parameter<std::string>("host_name", host_name_);
   update_rate_hz_ =
       this->declare_parameter<double>("update_rate_hz", update_rate_hz_);
+  expected_rate_hz_ =
+      this->declare_parameter<double>("expected_rate_hz", expected_rate_hz_);
   publish_specific_segment_ = this->declare_parameter<bool>(
       "publish_specific_segment", publish_specific_segment_);
   target_subject_name_ = this->declare_parameter<std::string>(
@@ -152,40 +164,44 @@ void ViconBridge::timer_callback() {
 
 void ViconBridge::process_frame(rclcpp::Time &grab_time) {
 
+  if (first_frame_) {
+    first_frame_number_ = client_.GetFrameNumber().FrameNumber;
+  }
+
   std::size_t frame_number = client_.GetFrameNumber().FrameNumber;
 
-  // skip the first call to process frames
-  if (last_frame_number_ == 0) {
-    last_frame_number_ = frame_number;
-    return;
-  }
+  // RCLCPP_INFO(get_logger(), "FIRST: %zu, LAST: %zu, CURR: %zu, DROP: %zu,
+  // TOTAL: %zu", first_frame_number_, last_frame_number_, frame_number,
+  // drop_count_, frame_count_);
 
   // check that indeed we have a new frame
   int frame_diff = frame_number - last_frame_number_;
   if (frame_diff <= 0) {
+    RCLCPP_WARN(get_logger(), "FRAME_DIFF <= 0");
     return;
   }
 
   // check if we have dropped frames
-  frame_count_ += frame_diff;
-  if (frame_diff > 1) {
-    drop_count_ += frame_diff;
-    double droppedFramePct = (double)drop_count_ / frame_count_ * 100.0;
-    RCLCPP_WARN_STREAM(get_logger(), frame_diff
-                                         << " more frames dropped. Total "
-                                         << drop_count_ << "/" << frame_count_
-                                         << ", " << droppedFramePct
-                                         << "%. Consider adjusting rates.");
+  if (!first_frame_) {
+    frame_count_ += frame_diff;
+    if (frame_diff > 1) {
+      drop_count_ += frame_diff - 1;
+      double droppedFramePct = (double)drop_count_ / frame_count_ * 100.0;
+      RCLCPP_WARN_STREAM(get_logger(), frame_diff - 1
+                                           << " more frame(s) dropped. Total "
+                                           << drop_count_ << "/" << frame_count_
+                                           << ", " << droppedFramePct
+                                           << "%. Consider adjusting rates.");
+    }
   }
-
-  last_frame_number_ = frame_number;
 
   // now do the actual processing
   double latency_s = client_.GetLatencyTotal().Total;
   rclcpp::Duration latency{std::chrono::duration<double>(latency_s)};
   RCLCPP_INFO_THROTTLE(get_logger(), *(this->get_clock()),
                        1000, // 1000 ms = 1 second
-                       "latency of last frame: %f s", latency_s);
+                       "latency of last frame: %f s  [frame_count: %zu]",
+                       latency_s, frame_count_);
 
   if (publish_specific_segment_) {
     process_specific_segment(grab_time - latency);
@@ -193,6 +209,9 @@ void ViconBridge::process_frame(rclcpp::Time &grab_time) {
     process_all_segments(grab_time - latency);
   }
 
+  pub_freq_ptr_->tick();
+
+  last_frame_number_ = frame_number;
   return;
 }
 
@@ -204,6 +223,7 @@ void ViconBridge::process_specific_segment(const rclcpp::Time &frame_time) {
 
   if (success) {
     tf_broadcaster_->sendTransform(msg);
+    first_frame_ = false; // got a frame!
   }
 
   return;
@@ -256,8 +276,11 @@ void ViconBridge::process_all_segments(const rclcpp::Time &frame_time) {
     }
   }
 
-  // now publish all of the transforms as a single tf broadcaster message
-  tf_broadcaster_->sendTransform(transforms);
+  if (transforms.size() > 0) {
+    // now publish all of the transforms as a single tf broadcaster message
+    tf_broadcaster_->sendTransform(transforms);
+    first_frame_ = false;
+  }
 }
 
 bool ViconBridge::get_transform(geometry_msgs::msg::TransformStamped &msg,

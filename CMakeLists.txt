@@ -25,6 +25,7 @@ find_package(rclcpp REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
+find_package(diagnostic_updater REQUIRED)
 
 
 include_directories(
@@ -63,6 +64,7 @@ ament_target_dependencies(vicon_bridge
 	tf2
 	tf2_ros
 	geometry_msgs
+  diagnostic_updater
 )
 target_link_libraries(vicon_bridge vicon_sdk ${Boost_LIBRARIES})
 
