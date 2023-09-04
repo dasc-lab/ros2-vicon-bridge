@@ -10,6 +10,8 @@
 #include "geometry_msgs/msg/transform_stamped.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "tf2_ros/transform_broadcaster.h"
+#include <diagnostic_updater/diagnostic_updater.hpp>
+#include <diagnostic_updater/publisher.hpp>
 
 // Boost
 #include <boost/shared_ptr.hpp>
@@ -56,6 +58,7 @@ private:
   std::string host_name_ = "192.168.2.136:801";
   std::string stream_mode_ = "ServerPush";
   double update_rate_hz_ = 250.0;
+  double expected_rate_hz_ = 100.0;
   bool publish_specific_segment_ = false;
   std::string target_subject_name_ = "";
   std::string target_segment_name_ = "";
@@ -69,10 +72,17 @@ private:
   const rclcpp::Time start_time_;
   std::size_t drop_count_ = 0;
   std::size_t frame_count_ = 0;
+  std::size_t first_frame_number_ = 0;
   std::size_t last_frame_number_ = 0;
+  bool first_frame_ = true;
+  std::shared_ptr<diagnostic_updater::Updater> updater_ptr_;
+  std::shared_ptr<diagnostic_updater::HeaderlessTopicDiagnostic> pub_freq_ptr_;
 
   SegmentMap segment_publishers_;
   boost::mutex segments_mutex_;
+
+  double tolerance_ = 0.1;
+  int window_ = 100;
 
 }; // class ViconBridge
 
