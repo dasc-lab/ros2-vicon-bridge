@@ -55,7 +55,7 @@ private:
   void process_all_segments(const rclcpp::Time &frame_time);
 
   // parameters
-  std::string host_name_ = "192.168.2.136:801";
+  std::string host_name_ = "192.168.1.164:801";
   std::string stream_mode_ = "ServerPush";
   double update_rate_hz_ = 250.0;
   double expected_rate_hz_ = 100.0;
