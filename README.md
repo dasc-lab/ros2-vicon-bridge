@@ -19,9 +19,9 @@ sudo apt-get install libboost-thread-dev libboost-date-time-dev
 ```
 The source code of the `ViconSDK` has been copied from Vicon and provided in this repo, meaning it should be able to build for both `x86` and `aarch64` systems, and possibly others. 
 
-You also need to grab the `diagnostics-updater` package:
+You also need to grab the `diagnostic-updater` package:
 ```
-sudo apt-get install ros-${ROS_DISTRO}-diagnostics-updater
+sudo apt-get install ros-${ROS_DISTRO}-diagnostic-updater
 ```
 
 From your `colcon_ws` run 
