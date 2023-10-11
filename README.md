@@ -19,12 +19,24 @@ sudo apt-get install libboost-thread-dev libboost-date-time-dev
 ```
 The source code of the `ViconSDK` has been copied from Vicon and provided in this repo, meaning it should be able to build for both `x86` and `aarch64` systems, and possibly others. 
 
+You also need to grab the `diagnostic-updater` package:
+```
+sudo apt-get install ros-${ROS_DISTRO}-diagnostic-updater
+```
+
 From your `colcon_ws` run 
 ```
 colcon build --symlink-install
 ```
 
 ## Usage of the standard client (recommended)
+Edit `./launch/all_segments.launch.py` and set the IP address of the Vicon computer correctly. 
+Then launch it through
+```
+ros2 launch vicon_bridge all_segments.launch.py
+```
+
+Alternatively, you can also run just the node:
 ```
 ros2 run vicon_bridge vicon_bridge --ros-args ...
 ``` 
