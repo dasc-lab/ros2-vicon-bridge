@@ -7,6 +7,7 @@
 #include <string>
 
 // ROS2
+#include "geometry_msgs/msg/pose_stamped.hpp"
 #include "geometry_msgs/msg/transform_stamped.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "tf2_ros/transform_broadcaster.h"
@@ -27,6 +28,7 @@ using namespace ViconDataStreamSDK::CPP;
 class SegmentPublisher {
 public:
   rclcpp::Publisher<geometry_msgs::msg::TransformStamped>::SharedPtr pub;
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_poseMsg;
   bool is_ready = false;
 
 }; // class Segment Publisher;
@@ -43,9 +45,9 @@ private:
   bool init_vicon();
   void get_parameters();
   void timer_callback();
-  bool get_transform(geometry_msgs::msg::TransformStamped &msg,
-                     const rclcpp::Time &now, std::string subjectName,
-                     std::string segmentName);
+  bool get_transform_msg(geometry_msgs::msg::TransformStamped &msg,
+                         const rclcpp::Time &now, std::string subjectName,
+                         std::string segmentName);
   void print_drop_rate();
   void create_segment_thread(const std::string subject,
                              const std::string segment);
@@ -53,6 +55,8 @@ private:
   void process_frame(rclcpp::Time &grab_time);
   void process_specific_segment(const rclcpp::Time &frame_time);
   void process_all_segments(const rclcpp::Time &frame_time);
+  geometry_msgs::msg::PoseStamped
+  transform2pose(geometry_msgs::msg::TransformStamped &transformMsg);
 
   // parameters
   std::string host_name_ = "192.168.1.164:801";

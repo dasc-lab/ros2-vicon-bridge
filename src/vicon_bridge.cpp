@@ -15,6 +15,8 @@ ViconBridge::ViconBridge()
   // initialize the tf broadcaster
   tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
 
+  // initialize the publishers
+
   // start vicon
   if (!init_vicon()) {
     RCLCPP_WARN(this->get_logger(), "INITIALIZATION FAILED.. EXITING");
@@ -134,11 +136,16 @@ void ViconBridge::create_segment_thread(const std::string subject_name,
   boost::mutex::scoped_lock lock(segments_mutex_);
   SegmentPublisher &spub =
       segment_publishers_[subject_name + "/" + segment_name];
+
   lock.unlock(); // we dont need the lock anymore
 
   // register the publisher
   spub.pub = this->create_publisher<geometry_msgs::msg::TransformStamped>(
       tf_namespace_ + "/" + subject_name + "/" + segment_name, 10);
+
+  // register the pose publisher
+  spub.pub_poseMsg = this->create_publisher<geometry_msgs::msg::PoseStamped>(
+      tf_namespace_ + "/" + subject_name + "/" + segment_name + "/pose", 10);
 
   spub.is_ready = true;
 }
@@ -220,8 +227,8 @@ void ViconBridge::process_frame(rclcpp::Time &grab_time) {
 void ViconBridge::process_specific_segment(const rclcpp::Time &frame_time) {
 
   geometry_msgs::msg::TransformStamped msg;
-  bool success = get_transform(msg, frame_time, target_subject_name_,
-                               target_segment_name_);
+  bool success = get_transform_msg(msg, frame_time, target_subject_name_,
+                                   target_segment_name_);
 
   if (success) {
     tf_broadcaster_->sendTransform(msg);
@@ -254,7 +261,7 @@ void ViconBridge::process_all_segments(const rclcpp::Time &frame_time) {
 
       geometry_msgs::msg::TransformStamped transform;
       bool success =
-          get_transform(transform, frame_time, subject_name, segment_name);
+          get_transform_msg(transform, frame_time, subject_name, segment_name);
 
       if (success) {
         transforms.push_back(transform);
@@ -266,7 +273,10 @@ void ViconBridge::process_all_segments(const rclcpp::Time &frame_time) {
           if (pub_it != segment_publishers_.end()) {
             SegmentPublisher &spub = pub_it->second;
             if (spub.is_ready) {
+              // publish the tranform msg
               spub.pub->publish(transform);
+              // also publish as a pose msg
+              spub.pub_poseMsg->publish(transform2pose(transform));
             }
           } else {
             // need to create a new publisher
@@ -285,10 +295,23 @@ void ViconBridge::process_all_segments(const rclcpp::Time &frame_time) {
   }
 }
 
-bool ViconBridge::get_transform(geometry_msgs::msg::TransformStamped &msg,
-                                const rclcpp::Time &frame_time,
-                                std::string subject_name,
-                                std::string segment_name) {
+geometry_msgs::msg::PoseStamped ViconBridge::transform2pose(
+    geometry_msgs::msg::TransformStamped &transformMsg) {
+
+  geometry_msgs::msg::PoseStamped poseMsg;
+  poseMsg.header = transformMsg.header;
+  poseMsg.pose.position.x = transformMsg.transform.translation.x;
+  poseMsg.pose.position.y = transformMsg.transform.translation.y;
+  poseMsg.pose.position.z = transformMsg.transform.translation.z;
+  poseMsg.pose.orientation = transformMsg.transform.rotation;
+
+  return poseMsg;
+}
+
+bool ViconBridge::get_transform_msg(geometry_msgs::msg::TransformStamped &msg,
+                                    const rclcpp::Time &frame_time,
+                                    std::string subject_name,
+                                    std::string segment_name) {
 
   auto res_quat =
       client_.GetSegmentGlobalRotationQuaternion(subject_name, segment_name);
