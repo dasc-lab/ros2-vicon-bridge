@@ -143,10 +143,6 @@ void ViconBridge::create_segment_thread(const std::string subject_name,
   spub.pub = this->create_publisher<geometry_msgs::msg::TransformStamped>(
       tf_namespace_ + "/" + subject_name + "/" + segment_name, 10);
 
-  // register the pose publisher
-  spub.pub_poseMsg = this->create_publisher<geometry_msgs::msg::PoseStamped>(
-      tf_namespace_ + "/" + subject_name + "/" + segment_name + "/pose", 10);
-
   spub.is_ready = true;
 }
 
@@ -275,8 +271,6 @@ void ViconBridge::process_all_segments(const rclcpp::Time &frame_time) {
             if (spub.is_ready) {
               // publish the tranform msg
               spub.pub->publish(transform);
-              // also publish as a pose msg
-              spub.pub_poseMsg->publish(transform2pose(transform));
             }
           } else {
             // need to create a new publisher
@@ -295,18 +289,18 @@ void ViconBridge::process_all_segments(const rclcpp::Time &frame_time) {
   }
 }
 
-geometry_msgs::msg::PoseStamped ViconBridge::transform2pose(
-    geometry_msgs::msg::TransformStamped &transformMsg) {
-
-  geometry_msgs::msg::PoseStamped poseMsg;
-  poseMsg.header = transformMsg.header;
-  poseMsg.pose.position.x = transformMsg.transform.translation.x;
-  poseMsg.pose.position.y = transformMsg.transform.translation.y;
-  poseMsg.pose.position.z = transformMsg.transform.translation.z;
-  poseMsg.pose.orientation = transformMsg.transform.rotation;
-
-  return poseMsg;
-}
+// geometry_msgs::msg::PoseStamped ViconBridge::transform2pose(
+//     geometry_msgs::msg::TransformStamped &transformMsg) {
+//
+//   geometry_msgs::msg::PoseStamped poseMsg;
+//   poseMsg.header = transformMsg.header;
+//   poseMsg.pose.position.x = transformMsg.transform.translation.x;
+//   poseMsg.pose.position.y = transformMsg.transform.translation.y;
+//   poseMsg.pose.position.z = transformMsg.transform.translation.z;
+//   poseMsg.pose.orientation = transformMsg.transform.rotation;
+//
+//   return poseMsg;
+// }
 
 bool ViconBridge::get_transform_msg(geometry_msgs::msg::TransformStamped &msg,
                                     const rclcpp::Time &frame_time,

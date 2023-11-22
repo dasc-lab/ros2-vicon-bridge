@@ -26,7 +26,7 @@ find_package(geometry_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(diagnostic_updater REQUIRED)
-
+find_package(Eigen3 3.3 NO_MODULE)
 
 include_directories(
 	${Boost_INCLUDE_DIRS}
@@ -53,6 +53,9 @@ target_link_libraries(vicon_test vicon_sdk)
 
 add_executable(vicon_test_fps src/vicon_test_fps.cpp)
 target_link_libraries(vicon_test_fps vicon_sdk)
+
+add_executable(test_perturb src/test_perturb.cpp)
+target_link_libraries(test_perturb Eigen3::Eigen)
 
 ##################
 # ROS EXECUTABLE #
