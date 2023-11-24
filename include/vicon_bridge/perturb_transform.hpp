@@ -1,9 +1,14 @@
 // Perturb Transforms
 // Devansh Agrawal Nov 2023
 
+#ifndef PERTURB_HPP
+#define PERTURB_HPP
+
 #include <Eigen/Geometry>
 #include <cmath>
 #include <iostream>
+
+namespace perturb {
 
 using namespace Eigen;
 
@@ -93,3 +98,7 @@ Transform<T, 3, Eigen::Isometry> perturb(Transform<T, 3, Eigen::Isometry> &H,
 
   return Hhat;
 }
+
+} // namespace perturb
+
+#endif // PERTURB_HPP

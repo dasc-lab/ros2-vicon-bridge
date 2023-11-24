@@ -80,9 +80,17 @@ ament_target_dependencies(vicon_bridge_retiming
 )
 target_link_libraries(vicon_bridge_retiming vicon_sdk ${Boost_LIBRARIES})
 
+add_executable(noisy_vicon src/noisy_vicon.cpp)
+ament_target_dependencies(noisy_vicon
+	rclcpp
+	geometry_msgs
+	)
+target_link_libraries(noisy_vicon Eigen3::Eigen)
+
 install(TARGETS
 	vicon_bridge
        	vicon_bridge_retiming
+	noisy_vicon
 	DESTINATION lib/${PROJECT_NAME}
 )
 

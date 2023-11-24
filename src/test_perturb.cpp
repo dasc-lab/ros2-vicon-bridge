@@ -3,6 +3,7 @@
 #include <iostream>
 
 using namespace Eigen;
+using namespace perturb;
 
 template <typename T> void test_rot_fro_norm(double epsilon_R, size_t N) {
 
@@ -15,7 +16,7 @@ template <typename T> void test_rot_fro_norm(double epsilon_R, size_t N) {
 
     Matrix3<T> R = randRotation<T>(2 * M_PI)
                        .toRotationMatrix(); // create the original matrix
-    Matrix3<T> hatR = perturb(R, epsilon_R);
+    Matrix3<T> hatR = perturb::perturb<T>(R, epsilon_R);
 
     // compute the frobenius norm
     double fro = (R - hatR).norm();
@@ -86,7 +87,7 @@ int main() {
   std::cout << "H: " << std::endl;
   std::cout << H.matrix() << std::endl;
 
-  auto Hhat = perturb(H, 0.1, 0.0);
+  auto Hhat = perturb::perturb<double>(H, 0.1, 0.0);
   std::cout << "Hhat" << std::endl;
   std::cout << Hhat.matrix() << std::endl;
 

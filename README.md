@@ -96,4 +96,11 @@ It also prints to the console the number of times it missed an update, and faile
 
 
 
+## Adding Noise
+Run the `noisy_vicon` node, eg.
+```
+ros2 run vicon_bridge noisy_vicon --ros-args -r transform:=/vicon/laptop_realsense/laptop_realsense -p epsilon_t_per_frame:=0.1
+```
+where the incoming topic is (by default) `~transform` and it outputs the perturbed pose to `~pose` and `~pose_with_cov`
 
+Parameters to set are `update_rate_hz` and `epsilon_R_per_frame` and `epsilon_t_per_frame` which default to 0. 
