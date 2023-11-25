@@ -26,7 +26,7 @@ find_package(geometry_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(diagnostic_updater REQUIRED)
-find_package(Eigen3 3.3 NO_MODULE)
+find_package(Eigen3 3.4 NO_MODULE)
 
 include_directories(
 	${Boost_INCLUDE_DIRS}

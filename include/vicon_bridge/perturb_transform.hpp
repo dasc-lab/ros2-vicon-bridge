@@ -6,7 +6,6 @@
 
 #include <Eigen/Geometry>
 #include <cmath>
-#include <iostream>
 
 namespace perturb {
 

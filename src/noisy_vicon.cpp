@@ -92,8 +92,8 @@ void NoisyVicon::publish_transform() {
   poseMsg.pose.position.x = hat_transform_.translation()[0];
   poseMsg.pose.position.y = hat_transform_.translation()[1];
   poseMsg.pose.position.z = hat_transform_.translation()[2];
+
   Eigen::Quaterniond q(hat_transform_.rotation());
-  std::cout << q << std::endl;
   poseMsg.pose.orientation.x = q.x();
   poseMsg.pose.orientation.y = q.y();
   poseMsg.pose.orientation.z = q.z();
