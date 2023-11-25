@@ -77,6 +77,8 @@ private:
   bool first_frame_ = true;
   std::shared_ptr<diagnostic_updater::Updater> updater_ptr_;
   std::shared_ptr<diagnostic_updater::HeaderlessTopicDiagnostic> pub_freq_ptr_;
+  rclcpp::Publisher<geometry_msgs::msg::TransformStamped>::SharedPtr
+      single_pub_;
 
   SegmentMap segment_publishers_;
   boost::mutex segments_mutex_;

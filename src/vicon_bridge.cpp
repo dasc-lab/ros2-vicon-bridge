@@ -16,6 +16,11 @@ ViconBridge::ViconBridge()
   tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
 
   // initialize the publishers
+  if (publish_specific_segment_) {
+    single_pub_ = this->create_publisher<geometry_msgs::msg::TransformStamped>(
+        tf_namespace_ + "/" + target_subject_name_ + "/" + target_segment_name_,
+        10);
+  }
 
   // start vicon
   if (!init_vicon()) {
@@ -228,6 +233,7 @@ void ViconBridge::process_specific_segment(const rclcpp::Time &frame_time) {
 
   if (success) {
     tf_broadcaster_->sendTransform(msg);
+    single_pub_->publish(msg);
     first_frame_ = false; // got a frame!
   }
 
