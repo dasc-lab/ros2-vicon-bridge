@@ -40,8 +40,8 @@ void NoisyVicon::get_parameters() {
 void NoisyVicon::transform_callback(TransformStamped::SharedPtr msg) {
 
   // extract the transform to eigen
-  Eigen::Quaterniond q(msg->transform.rotation.x, msg->transform.rotation.y,
-                       msg->transform.rotation.z, msg->transform.rotation.w);
+  Eigen::Quaterniond q(msg->transform.rotation.w, msg->transform.rotation.x,
+                       msg->transform.rotation.y, msg->transform.rotation.z);
 
   Eigen::Vector3d t(msg->transform.translation.x, msg->transform.translation.y,
                     msg->transform.translation.z);
