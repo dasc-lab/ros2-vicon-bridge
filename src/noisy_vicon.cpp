@@ -47,7 +47,8 @@ void NoisyVicon::transform_callback(TransformStamped::SharedPtr msg) {
                     msg->transform.translation.z);
 
   // save it as the current transform
-  current_transform_ = perturb::fromRotationTranslation<double>(q, t);
+  current_transform_ =
+      perturb::fromRotationTranslation<double>(q.inverse(), -t).inverse();
   current_transform_time_ = msg->header.stamp;
   world_frame_id_ = msg->header.frame_id;
 
@@ -85,15 +86,17 @@ void NoisyVicon::timer_callback() {
 
 void NoisyVicon::publish_transform() {
 
+  auto tf_ = hat_transform_;
+
   // create the pose msg
   PoseStamped poseMsg;
   poseMsg.header.stamp = current_transform_time_;
   poseMsg.header.frame_id = world_frame_id_;
-  poseMsg.pose.position.x = hat_transform_.translation()[0];
-  poseMsg.pose.position.y = hat_transform_.translation()[1];
-  poseMsg.pose.position.z = hat_transform_.translation()[2];
+  poseMsg.pose.position.x = tf_.translation()[0];
+  poseMsg.pose.position.y = tf_.translation()[1];
+  poseMsg.pose.position.z = tf_.translation()[2];
 
-  Eigen::Quaterniond q(hat_transform_.rotation());
+  Eigen::Quaterniond q(tf_.rotation());
   poseMsg.pose.orientation.x = q.x();
   poseMsg.pose.orientation.y = q.y();
   poseMsg.pose.orientation.z = q.z();
