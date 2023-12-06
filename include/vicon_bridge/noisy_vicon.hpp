@@ -17,6 +17,7 @@
 #include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
 #include "geometry_msgs/msg/transform_stamped.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "tf2_ros/transform_broadcaster.h"
 
 namespace noisy_vicon {
 
@@ -59,6 +60,7 @@ private:
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_pose_;
   rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr
       pub_pose_with_cov_;
+  std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
 
 }; // class ViconBridge
 

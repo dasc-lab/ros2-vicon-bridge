@@ -16,6 +16,7 @@ NoisyVicon::NoisyVicon()
   pub_pose_ = this->create_publisher<PoseStamped>("pose", 10);
   pub_pose_with_cov_ = this->create_publisher<PoseWithCovarianceStamped>(
       "pose_with_covariance", 10);
+  tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
 
   // initialize the subscribers
   sub_ = this->create_subscription<TransformStamped>(
@@ -112,6 +113,20 @@ void NoisyVicon::publish_transform() {
   poseCovMsg.pose.covariance[1] = epsilon_t_;
 
   pub_pose_with_cov_->publish(poseCovMsg);
+
+  // publish the tf object
+  TransformStamped tfMsg;
+  tfMsg.header = poseMsg.header;
+  tfMsg.child_frame_id = "noisy_robot_pose";
+  tfMsg.transform.translation.x = poseMsg.pose.position.x;
+  tfMsg.transform.translation.y = poseMsg.pose.position.y;
+  tfMsg.transform.translation.z = poseMsg.pose.position.z;
+  tfMsg.transform.rotation.x = poseMsg.pose.orientation.x;
+  tfMsg.transform.rotation.y = poseMsg.pose.orientation.y;
+  tfMsg.transform.rotation.z = poseMsg.pose.orientation.z;
+  tfMsg.transform.rotation.w = poseMsg.pose.orientation.w;
+
+  tf_broadcaster_->sendTransform(tfMsg);
 }
 
 } // namespace noisy_vicon

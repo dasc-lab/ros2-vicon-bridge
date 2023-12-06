@@ -84,6 +84,7 @@ add_executable(noisy_vicon src/noisy_vicon.cpp)
 ament_target_dependencies(noisy_vicon
 	rclcpp
 	geometry_msgs
+	tf2_ros
 	)
 target_link_libraries(noisy_vicon Eigen3::Eigen)
 
