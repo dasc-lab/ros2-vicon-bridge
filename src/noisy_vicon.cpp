@@ -68,14 +68,18 @@ void NoisyVicon::timer_callback() {
   if (is_first_msg_)
     return;
 
-  // compute the true relative transform
-  ETransform R_kkm1 = current_transform_ * (last_transform_.inverse());
+  if (epsilon_R_ == 0 && epsilon_t_ == 0) {
+    hat_transform_ = current_transform_;
+  } else {
+    // compute the true relative transform
+    ETransform R_kkm1 = current_transform_ * (last_transform_.inverse());
 
-  // get perturbed relative transform
-  ETransform hat_Rkkm1 = perturb::perturb(R_kkm1, epsilon_R_, epsilon_t_);
+    // get perturbed relative transform
+    ETransform hat_Rkkm1 = perturb::perturb(R_kkm1, epsilon_R_, epsilon_t_);
 
-  // multiply it onto the last published transform
-  hat_transform_ = hat_Rkkm1 * hat_transform_;
+    // multiply it onto the last published transform
+    hat_transform_ = hat_Rkkm1 * hat_transform_;
+  }
 
   // publish
   publish_transform();
