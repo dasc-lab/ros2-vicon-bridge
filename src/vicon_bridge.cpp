@@ -32,8 +32,8 @@ ViconBridge::ViconBridge()
   updater_ptr_ = std::make_shared<diagnostic_updater::Updater>(this);
   updater_ptr_->setHardwareID("vicon");
   // auto diagnostics_param =
-  // diagnostic_updater::FrequencyStatusParam(&update_rate_hz_, &update_rate_hz_,
-  // tolerance_, window_);
+  // diagnostic_updater::FrequencyStatusParam(&update_rate_hz_,
+  // &update_rate_hz_, tolerance_, window_);
   auto diagnostics_param = diagnostic_updater::FrequencyStatusParam(
       &expected_rate_hz_, &expected_rate_hz_);
   pub_freq_ptr_ =

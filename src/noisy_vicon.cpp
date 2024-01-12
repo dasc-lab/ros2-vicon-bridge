@@ -121,7 +121,9 @@ void NoisyVicon::publish_transform() {
   // publish the tf object
   TransformStamped tfMsg;
   tfMsg.header = poseMsg.header;
-  tfMsg.child_frame_id = "vicon/laptop_realsense/laptop_realsense"; // TODO(dev): make this a parameter
+  tfMsg.child_frame_id =
+      "vicon/laptop_realsense/laptop_realsense"; // TODO(dev): make this a
+                                                 // parameter
   tfMsg.transform.translation.x = poseMsg.pose.position.x;
   tfMsg.transform.translation.y = poseMsg.pose.position.y;
   tfMsg.transform.translation.z = poseMsg.pose.position.z;
