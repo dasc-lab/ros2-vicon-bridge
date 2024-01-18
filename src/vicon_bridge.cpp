@@ -22,6 +22,10 @@ ViconBridge::ViconBridge()
         10);
   }
 
+  unlabeledMarkerPublisher_ =
+      this->create_publisher<sensor_msgs::msg::PointCloud>(
+          tf_namespace_ + "/unlabeledMarkers", 10);
+
   // start vicon
   if (!init_vicon()) {
     RCLCPP_WARN(this->get_logger(), "INITIALIZATION FAILED.. EXITING");
@@ -123,6 +127,13 @@ bool ViconBridge::init_vicon() {
   client_.EnableSegmentData();
   assert(client_.IsSegmentDataEnabled().Enabled);
 
+  // setup marker data
+  client_.EnableMarkerData();
+  client_.EnableUnlabeledMarkerData();
+
+  assert(client_.IsMarkerDataEnabled().Enabled);
+  assert(client_.IsUnlabeledMarkerDataEnabled().Enabled);
+
   // version
   Output_GetVersion _Output_GetVersion = client_.GetVersion();
   RCLCPP_INFO_STREAM(get_logger(),
@@ -219,10 +230,51 @@ void ViconBridge::process_frame(rclcpp::Time &grab_time) {
     process_all_segments(grab_time - latency);
   }
 
+  // also process the unlabeled markers
+  // int labeledMarkerCount = client_.GetLabeledMarkerCount().MarkerCount;
+  // RCLCPP_WARN(get_logger(), "unlabeled marker count: %d   labeled marker
+  // count: %d", unlabeledMarkerCount, labeledMarkerCount);
+
+  process_unlabeled_markers(grab_time - latency);
+
   pub_freq_ptr_->tick();
 
   last_frame_number_ = frame_number;
   return;
+}
+
+void ViconBridge::process_unlabeled_markers(const rclcpp::Time &frame_time) {
+
+  // TODO(dev): check for success
+  std::size_t unlabeledMarkerCount =
+      client_.GetUnlabeledMarkerCount().MarkerCount;
+
+  if (unlabeledMarkerCount == 0) {
+    return;
+  }
+
+  // create a msg
+  sensor_msgs::msg::PointCloud msg;
+  msg.header.frame_id = (tf_namespace_ + "/" + world_frame_id_).c_str();
+  msg.header.stamp = frame_time;
+
+  for (std::size_t i = 0; i < unlabeledMarkerCount; i++) {
+
+    // get the global translation
+    auto output = client_.GetUnlabeledMarkerGlobalTranslation(i);
+
+    geometry_msgs::msg::Point32 pt;
+
+    // get it in meters
+    pt.x = output.Translation[0] / 1000.0;
+    pt.y = output.Translation[1] / 1000.0;
+    pt.z = output.Translation[2] / 1000.0;
+
+    msg.points.push_back(pt);
+  }
+
+  // now publish it
+  unlabeledMarkerPublisher_->publish(msg);
 }
 
 void ViconBridge::process_specific_segment(const rclcpp::Time &frame_time) {

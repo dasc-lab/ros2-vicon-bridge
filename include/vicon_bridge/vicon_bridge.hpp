@@ -12,6 +12,7 @@
 #include "tf2_ros/transform_broadcaster.h"
 #include <diagnostic_updater/diagnostic_updater.hpp>
 #include <diagnostic_updater/publisher.hpp>
+#include <sensor_msgs/msg/point_cloud.hpp>
 
 // Boost
 #include <boost/shared_ptr.hpp>
@@ -53,6 +54,7 @@ private:
   void process_frame(rclcpp::Time &grab_time);
   void process_specific_segment(const rclcpp::Time &frame_time);
   void process_all_segments(const rclcpp::Time &frame_time);
+  void process_unlabeled_markers(const rclcpp::Time &frame_time);
 
   // parameters
   std::string host_name_ = "192.168.1.164:801";
@@ -79,6 +81,9 @@ private:
   std::shared_ptr<diagnostic_updater::HeaderlessTopicDiagnostic> pub_freq_ptr_;
   rclcpp::Publisher<geometry_msgs::msg::TransformStamped>::SharedPtr
       single_pub_;
+
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud>::SharedPtr
+      unlabeledMarkerPublisher_;
 
   SegmentMap segment_publishers_;
   boost::mutex segments_mutex_;

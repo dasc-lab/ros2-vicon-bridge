@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.16)
 project(vicon_bridge)
 
 if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 17)
+  set(CMAKE_CXX_STANDARD 14)
 endif()
 
 
@@ -27,14 +27,17 @@ find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(diagnostic_updater REQUIRED)
 find_package(Eigen3 3.4 NO_MODULE)
+find_package(sensor_msgs REQUIRED)
 
 include_directories(
 	${Boost_INCLUDE_DIRS}
+	# ${PCL_INCLUDE_DIRS}
 	vicon_sdk/DataStream
 	vicon_sdk/DataStream/ViconDataStreamSDK_CPP
 	vicon_sdk
 	include
 	)
+
 #############
 # VICON SDK #
 #############
@@ -67,7 +70,8 @@ ament_target_dependencies(vicon_bridge
 	tf2
 	tf2_ros
 	geometry_msgs
-  diagnostic_updater
+	sensor_msgs
+	diagnostic_updater
 )
 target_link_libraries(vicon_bridge vicon_sdk ${Boost_LIBRARIES})
 
@@ -78,7 +82,10 @@ ament_target_dependencies(vicon_bridge_retiming
 	tf2_ros
 	geometry_msgs
 )
-target_link_libraries(vicon_bridge_retiming vicon_sdk ${Boost_LIBRARIES})
+target_link_libraries(vicon_bridge_retiming 
+	vicon_sdk 
+	${Boost_LIBRARIES}
+)
 
 add_executable(noisy_vicon src/noisy_vicon.cpp)
 ament_target_dependencies(noisy_vicon
@@ -86,7 +93,9 @@ ament_target_dependencies(noisy_vicon
 	geometry_msgs
 	tf2_ros
 	)
-target_link_libraries(noisy_vicon Eigen3::Eigen)
+target_link_libraries(noisy_vicon
+	Eigen3::Eigen
+)
 
 install(TARGETS
 	vicon_bridge
