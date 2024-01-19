@@ -17,6 +17,7 @@
 #include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
 #include "geometry_msgs/msg/transform_stamped.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "sensor_msgs/msg/point_cloud.hpp"
 #include "tf2_ros/transform_broadcaster.h"
 
 namespace noisy_vicon {
@@ -33,7 +34,9 @@ private:
   void get_parameters();
   void timer_callback();
   void transform_callback(geometry_msgs::msg::TransformStamped::SharedPtr msg);
+  void pearls_callback(sensor_msgs::msg::PointCloud::SharedPtr msg);
   void publish_transform();
+  void publish_pearls();
 
   // parameters
   double update_rate_hz_ = 30.0;
@@ -53,14 +56,18 @@ private:
   ETransform last_transform_;    // last published transform
   ETransform current_transform_; // last transform received
 
+  sensor_msgs::msg::PointCloud::SharedPtr current_pearls_pointcloud_;
+
   // subs
   rclcpp::Subscription<geometry_msgs::msg::TransformStamped>::SharedPtr sub_;
+  rclcpp::Subscription<sensor_msgs::msg::PointCloud>::SharedPtr sub_pearls_;
 
   // pubs
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_pose_;
   rclcpp::Publisher<geometry_msgs::msg::PoseWithCovarianceStamped>::SharedPtr
       pub_pose_with_cov_;
   std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud>::SharedPtr pub_noisy_pearls_;
 
 }; // class ViconBridge
 

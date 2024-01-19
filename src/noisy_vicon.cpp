@@ -16,11 +16,17 @@ NoisyVicon::NoisyVicon()
   pub_pose_ = this->create_publisher<PoseStamped>("pose", 10);
   pub_pose_with_cov_ = this->create_publisher<PoseWithCovarianceStamped>(
       "pose_with_covariance", 10);
+  pub_noisy_pearls_ =
+      this->create_publisher<sensor_msgs::msg::PointCloud>("noisy_pearls", 2);
   tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
 
   // initialize the subscribers
   sub_ = this->create_subscription<TransformStamped>(
       "transform", 10, std::bind(&NoisyVicon::transform_callback, this, _1));
+
+  sub_pearls_ = this->create_subscription<sensor_msgs::msg::PointCloud>(
+      "/vicon/unlabeledMarkers", 10,
+      std::bind(&NoisyVicon::pearls_callback, this, _1));
 
   // start timer
   timer_ = this->create_wall_timer(
@@ -63,6 +69,11 @@ void NoisyVicon::transform_callback(TransformStamped::SharedPtr msg) {
   }
 }
 
+void NoisyVicon::pearls_callback(sensor_msgs::msg::PointCloud::SharedPtr msg) {
+
+  current_pearls_pointcloud_ = msg;
+}
+
 void NoisyVicon::timer_callback() {
   // exit early if we havent received any msgs yet
   if (is_first_msg_)
@@ -83,10 +94,42 @@ void NoisyVicon::timer_callback() {
 
   // publish
   publish_transform();
+  publish_pearls();
 
   // update the last_transforms
   last_transform_ = current_transform_;
   last_transform_time_ = current_transform_time_;
+}
+
+void NoisyVicon::publish_pearls() {
+
+  if (!current_pearls_pointcloud_) {
+    return;
+  }
+
+  // compute the total drift (drifted_pose = drift * true_pose)
+  auto total_drift = hat_transform_ * current_transform_.inverse();
+
+  // apply this transform to all the pearls
+  sensor_msgs::msg::PointCloud msg;
+  msg.header.frame_id = "mapping";
+  msg.header.stamp = current_pearls_pointcloud_->header.stamp;
+
+  for (auto &pt : current_pearls_pointcloud_->points) {
+
+    Eigen::Vector4d v(pt.x, pt.y, pt.z, 1.0);
+    Eigen::Vector4d new_v = total_drift * v; // apply the drift
+
+    geometry_msgs::msg::Point32 new_pt;
+    new_pt.x = new_v(0);
+    new_pt.y = new_v(1);
+    new_pt.z = new_v(2);
+
+    msg.points.push_back(new_pt);
+  }
+
+  // publish
+  pub_noisy_pearls_->publish(msg);
 }
 
 void NoisyVicon::publish_transform() {
@@ -96,7 +139,7 @@ void NoisyVicon::publish_transform() {
   // create the pose msg
   PoseStamped poseMsg;
   poseMsg.header.stamp = current_transform_time_;
-  poseMsg.header.frame_id = world_frame_id_;
+  poseMsg.header.frame_id = "mapping"; // world_frame_id_;
   poseMsg.pose.position.x = tf_.translation()[0];
   poseMsg.pose.position.y = tf_.translation()[1];
   poseMsg.pose.position.z = tf_.translation()[2];
