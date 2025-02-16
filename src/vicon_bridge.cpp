@@ -225,13 +225,35 @@ void ViconBridge::process_frame(rclcpp::Time &grab_time) {
 }
 
 void ViconBridge::process_specific_segment(const rclcpp::Time &frame_time) {
-
-  geometry_msgs::msg::TransformStamped msg;
-  bool success = get_transform_msg(msg, frame_time, target_subject_name_,
+  // RCLCPP_INFO(get_logger(), "Processing specific segment to:!");
+  // RCLCPP_INFO(get_logger(), "Creating new object %s/%s", target_subject_name_.c_str(),
+  //           target_segment_name_.c_str());
+  geometry_msgs::msg::TransformStamped transform;
+  bool success = get_transform_msg(transform, frame_time, target_subject_name_,
                                    target_segment_name_);
-
+  SegmentMap::iterator pub_it;
   if (success) {
-    tf_broadcaster_->sendTransform(msg);
+    tf_broadcaster_->sendTransform(transform);
+    
+
+    // now find the specific publisher
+    boost::mutex::scoped_try_lock lock(segments_mutex_);
+    if (lock.owns_lock()) {
+      pub_it = segment_publishers_.find(target_subject_name_ + "/" + target_segment_name_);
+      if (pub_it != segment_publishers_.end()) {
+        SegmentPublisher &spub = pub_it->second;
+        if (spub.is_ready) {
+          // publish the tranform msg
+          spub.pub->publish(transform);
+          // also publish as a pose msg
+          spub.pub_poseMsg->publish(transform2pose(transform));
+        }
+      } else {
+        // need to create a new publisher
+        lock.unlock();
+        create_segment(target_subject_name_, target_segment_name_);
+      }
+    }
     first_frame_ = false; // got a frame!
   }
 

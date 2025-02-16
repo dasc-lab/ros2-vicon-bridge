@@ -39,8 +39,8 @@ private:
   double max_prediction_ms_ = 100.0;
   double update_rate_hz_ = 100.0;
   bool publish_specific_segment_ = false;
-  std::string target_subject_name_ = "px4_1";
-  std::string target_segment_name_ = "px4_1";
+  std::string target_subject_name_ = "px4_100";
+  std::string target_segment_name_ = "px4_100";
   std::string world_frame_id_ = "world";
   std::string tf_namespace_ = "vicon";
 
